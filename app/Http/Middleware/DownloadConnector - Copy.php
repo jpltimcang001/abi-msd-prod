@@ -2,17 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use SoapVar;
-/* Utils */
-use App\Utils\Globals;
-use App\Utils\Params;
-use App\Utils\Utils;
-use DB;
-/* Model */
-use App\Model\noc\Salesman as Salesman;
-use App\Model\noc\SalesOffice as SalesOffice;
-use App\Model\noc\DistributionChannel as DistributionChannel;
-/* Schema */
 use App\Data\BalanceData as BalanceData;
 use App\Data\BalanceEmptiesData as BalanceEmptiesData;
 use App\Data\CustomerDiscountGroupData as CustomerDiscountGroupData;
@@ -31,9 +20,9 @@ use App\Data\PaymentMethodData as PaymentMethodData;
 use App\Data\PaymentTermsData as PaymentTermsData;
 use App\Data\PromotionBudgetData as PromotionBudgetData;
 use App\Data\PromotionData as PromotionData;
-use App\Data\PromotionFocData as PromotionFocData;
 use App\Data\PromotionDetailData as PromotionDetailData;
 use App\Data\PromotionDiscountLineData as PromotionDiscountLineData;
+use App\Data\PromotionFocData as PromotionFocData;
 use App\Data\PromotionLocationData as PromotionLocationData;
 use App\Data\PserData;
 use App\Data\SalesmanData as SalesmanData;
@@ -45,23 +34,30 @@ use App\Data\SKUData as SKUData;
 use App\Data\SubChannelData as SubChannelData;
 use App\Data\VATBusPostingGroupData as VATBusPostingGroupData;
 use App\Data\ZoneData as ZoneData;
-
 use App\Model\noc\BalanceEmpties;
+use App\Model\noc\DistributionChannel as DistributionChannel;
+use App\Model\noc\Invoice;
+use App\Model\noc\InvoiceDetails as InvoiceDetail;
+use App\Model\noc\InvoiceRefundDetail;
+use App\Model\noc\Location;
+use App\Model\noc\PickNote;
+use App\Model\noc\Salesman as Salesman;
+use App\Model\noc\SalesOffice as SalesOffice;
 use App\Model\noc\SalesOrder;
 use App\Model\noc\SalesOrderDetail;
 use App\Model\noc\SalesOrderReturnable;
+use App\Model\noc\Sku;
 use App\Model\noc\TempCollectionCash;
 use App\Model\noc\TempCollectionCashBreakdown;
-use App\Model\noc\PickNote;
-use App\Model\noc\Invoice;
-use App\Model\noc\InvoiceRefundDetail;
-use App\Model\noc\Location;
-use App\Model\noc\InvoiceDetails as InvoiceDetail;
-use App\Model\noc\Sku;
-use App\Model\wms\OutgoingNotification;
 use App\Model\wms\InventoryBreakdown;
-
+use App\Model\wms\OutgoingNotification;
+use App\Utils\Globals;
+use App\Utils\Params;
+use App\Utils\Utils;
+use DB;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
+use SoapVar;
 
 class DownloadConnector extends Model
 {
@@ -141,7 +137,7 @@ class DownloadConnector extends Model
 			
 		}
 		$msd_data = array();
-       
+        Log::info($msd_soap_result->ReadMultiple_Result->Customers);
         if (isset($msd_soap_result->ReadMultiple_Result->Customers)) {
             $msd_init_data = $msd_soap_result->ReadMultiple_Result->Customers;
 
@@ -154,6 +150,8 @@ class DownloadConnector extends Model
                 $service_call_days = array();
 
                 foreach (get_object_vars($value) as $att_key => $att_value) {
+                    // Log::info($att_key . " - " . $att_value);
+                    print_r($att_key . " - " . $att_value.PHP_EOL);
                     switch ($att_key) {
                         case "Sunday":
                             if ($att_value == 1)
@@ -193,6 +191,8 @@ class DownloadConnector extends Model
                             break;
                     }
                 }
+                // $this->log($msd_data_val);
+                Log::info($msd_data_val);
                 $msd_data_val->approval_status = 1;
                 $msd_data_val->added_by = DownloadConnector::MSD_LOGGER_NAME;
                 $msd_data_val->updated_by = DownloadConnector::MSD_LOGGER_NAME;

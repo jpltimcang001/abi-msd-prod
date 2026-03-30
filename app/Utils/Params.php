@@ -11,6 +11,10 @@ class Params
             'abi_wms_company_code' => 'ABI-SALES',
             'abi_wms_company_id' => '7cc50afb-e0db-410d-a479-5cf7b60e18fd',
             'webservice' => array(
+                // 'abi_noc_central' => array(
+                //     'url' => 'http://localhost/abi-noc-central-webservice/index.php?r=api/webservice',
+                //     'end_point' => 'http://localhost/abi-noc-central-webservice/index.php?r=api/webservice&ws=1',
+                // ),
                 'abi_noc_central' => array(
                     'url' => 'http://api.1go-noc.com/index.php?r=api/webservice',
                     'end_point' => 'http://api.1go-noc.com/index.php?r=api/webservice&ws=1',
@@ -59,7 +63,7 @@ class Params
                         'sub-channel' => array(
                             'list' => 'SubTradeChannelCode',
                         ),
-                        'location' => array(
+                        ' ' => array(
                             'list' => 'Locations',
                         ),
                         'salesman-type' => array(
