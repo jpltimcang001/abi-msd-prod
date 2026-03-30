@@ -47,7 +47,7 @@ class LocationData
 		// 'Post_Code' => 'zip_code',
 		'Fax_No' => 'fax_no',
 		'ContactName' => 'cp_name_1',
-		'Temporary_Location' => 'temporary_location',
+		//'Temporary_Location' => 'temporary_location',
 		'WIN_Owner_x0027_s_Full_Name'  => 'owner_name',
 		'WIN_Owner_x0027_s_Mobile_Number'  => 'owner_contact',
 		'Date_Open'  => 'date_open',

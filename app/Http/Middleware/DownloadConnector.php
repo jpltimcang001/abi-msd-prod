@@ -173,6 +173,7 @@ class DownloadConnector extends Model
 					switch ($att_key) {
 						case "Key":
 							$bookmarkKey = $att_value; // Update bookmark to the last processed Key
+							$msd_data_val->ms_dynamics_key = $att_value;
 							break;
 						case "Sunday":    if ($att_value == 1) $service_call_days[] = "1"; break;
 						case "Monday":    if ($att_value == 1) $service_call_days[] = "2"; break;
@@ -190,9 +191,9 @@ class DownloadConnector extends Model
 					}
 				}
 
-				if (!empty($msd_data_val->temporary_location)) {
-					$msd_data_val->code2 = $msd_data_val->temporary_location;
-				}
+				// if (!empty($msd_data_val->temporary_location)) {
+					// $msd_data_val->code2 = $msd_data_val->temporary_location;
+				// }
 				$msd_data_val->approval_status = 1;
 				$msd_data_val->added_by = DownloadConnector::MSD_LOGGER_NAME;
 				$msd_data_val->updated_by = DownloadConnector::MSD_LOGGER_NAME;
