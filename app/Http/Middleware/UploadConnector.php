@@ -3046,7 +3046,8 @@ class UploadConnector extends Model
                     $data->salesman_code = $salesman->code;
                 $data->ct_slip = 'true';
                 $data->empties_type = 'Deposit';
-                $data->reason_code = 'EMPTIES';
+                // $data->reason_code = 'EMPTIES';
+                $data->reason_code = 'PULLOUT';
                 $data->document_date = date("Y-m-d", strtotime($batch->invoice_date));
                 $data->due_date = date("Y-m-d", strtotime($batch->due_date));
                 $data->applies_to_doc_type = 'Invoice';
