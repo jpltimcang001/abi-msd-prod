@@ -3252,6 +3252,8 @@ class DownloadConnector extends Model
                     }
                     /** Log failed rows */
                     Utils::updateTriggerFailedRows($trigger_id, $soap_result['failed_rows'], true); /* Update trigger failed rows = existing + response failed_rows */
+                    Log::info($soap_result);
+                    Log::info($soap_result_wms);
                     /** Log response error */
                     if (isset($soap_result['error']) && $soap_result['error'] > 0) {
                         foreach ($soap_result['error'] as $k_e => $v_err_msg) {
@@ -3453,7 +3455,12 @@ class DownloadConnector extends Model
         $batch_enabled = isset($data['batch_enabled']) && $data['batch_enabled'] ? true : false;
 
         $soap_client = Globals::soapClientABINOCCentralWS();
-        $msd_soap_result = Globals::callSoapApiReadMultiple($url, $data);
+        try {
+            $msd_soap_result = Globals::callSoapApiReadMultiple($url, $data);
+        } catch (\Exception $exc) {
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::ERROR, DownloadConnector::MSD_LOGGER_NAME, "[" . ZoneData::MODULE_NAME_ZONE . "] " . Utils::logMsg($exc->getMessage()), "");
+            throw $exc;
+        }
         $msd_data = array();
 
         if (isset($msd_soap_result->ReadMultiple_Result->Locations)) {
@@ -3464,9 +3471,11 @@ class DownloadConnector extends Model
                         switch ($att_key) {
                             case "Code":
                                 $msd_data_val->zone_name = $att_value;
+                                break;
                             case "Location_Type":
                                 if ($att_value == "Main_WH")
                                     $msd_data_val->is_default_zone = true; // Sales office default zone
+                                break;
                         }
                         $msd_data_val->setMSD($att_key, $att_value);
                     }
@@ -3482,9 +3491,11 @@ class DownloadConnector extends Model
                     switch ($att_key) {
                         case "Code":
                             $msd_data_val->zone_name = $att_value;
+                            break;
                         case "Location_Type":
                             if ($att_value == "Main_WH")
                                 $msd_data_val->is_default_zone = true; // Sales office default zone
+                            break;
                     }
                     $msd_data_val->setMSD($att_key, $att_value);
                 }
@@ -3505,8 +3516,10 @@ class DownloadConnector extends Model
 
         if ($total_rows > 0) {
             $batch_data = array_chunk($msd_data, DownloadConnector::BATCH_LIMIT); // Create batch
+            $aggregated_total_rows = 0;
+            $aggregated_failed_rows = 0;
 
-            foreach ($batch_data as $key => $batch) {
+            foreach ($batch_data as $batch) {
 
                 $batch_params = '<GetBatchZoneCriteria xsi:type="urn:GetZoneCriteriaArray" soap-enc:arrayType="urn:GetZoneCriteria[]">';
                 foreach ($batch as $line) {
@@ -3518,14 +3531,8 @@ class DownloadConnector extends Model
                 $soap_result_wms = (array) $soap_client->saveWmsBatchZone($batch_request);
                 /** Log response message */
                 Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . ZoneData::MODULE_NAME_ZONE . "] " . $soap_result['message'], ""); /* Save log info message */
-                /** Log total rows */
-                if ($key === 0) {
-                    Utils::updateTriggerTotalRows($trigger_id, $soap_result['total_rows'], $batch_enabled); /* Update trigger total rows */
-                } else {
-                    Utils::updateTriggerTotalRows($trigger_id, $soap_result['total_rows'], true); /* Update trigger total rows = existing + response total_rows */
-                }
-                /** Log failed rows */
-                Utils::updateTriggerFailedRows($trigger_id, $soap_result['failed_rows'], true); /* Update trigger failed rows = existing + response failed_rows */
+                $aggregated_total_rows += isset($soap_result['total_rows']) ? (int) $soap_result['total_rows'] : 0;
+                $aggregated_failed_rows += isset($soap_result['failed_rows']) ? (int) $soap_result['failed_rows'] : 0;
                 /** Log response error */
                 if (isset($soap_result['error']) && $soap_result['error'] > 0) {
                     foreach ($soap_result['error'] as $k_e => $v_err_msg) {
@@ -3533,6 +3540,9 @@ class DownloadConnector extends Model
                     }
                 }
             }
+
+            Utils::updateTriggerTotalRows($trigger_id, $aggregated_total_rows, $batch_enabled); /* Update trigger total rows once per run */
+            Utils::updateTriggerFailedRows($trigger_id, $aggregated_failed_rows, true); /* Update trigger failed rows once per run */
         } else {
             Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::ERROR, DownloadConnector::MSD_LOGGER_NAME, "[" . ZoneData::MODULE_NAME_ZONE . "] No maintenance found.", ""); /* Save log info message */
         }

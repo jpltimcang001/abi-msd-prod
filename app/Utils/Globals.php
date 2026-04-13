@@ -163,7 +163,7 @@ class Globals extends Model
 			
             return $result;
         } catch (SoapFault $e) {
-            print_r($client->__getLastResponse());
+            throw new \Exception("MSD ReadMultiple failed: " . $e->getMessage(), 0, $e);
         }
     }
 
