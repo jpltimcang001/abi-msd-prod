@@ -2330,7 +2330,7 @@ al     *
 			}
 			
 			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SKUData::MODULE_NAME_SKU) . "\n");
-			$this->runProduct($params_sku, $trigger);
+			$this->runProduct($params_sku, $trigger); 	
 			
             Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished Promotions maintenance.", ""); /* Save log message */
 			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(PromotionData::MODULE_NAME_PROMOTION) . "\n");
