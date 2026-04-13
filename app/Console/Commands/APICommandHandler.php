@@ -2275,7 +2275,7 @@ al     *
 				'Customer_Code' => isset($data['params']['No']) ? $data['params']['No'] : "",
 
 				//'From_Date' => "<". ( isset($data['params']['date_from']) ? $data['params']['date_from'] : date("Y-m-d", strtotime("-3 days"))),
-				'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-8 days"))
+				'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-14 days"))
             ]
         ]; //dd($params_dc);
 		$data_l =  [

@@ -63,7 +63,7 @@ class Params
                         'sub-channel' => array(
                             'list' => 'SubTradeChannelCode',
                         ),
-                        ' ' => array(
+                        'location' => array(
                             'list' => 'Locations',
                         ),
                         'salesman-type' => array(
