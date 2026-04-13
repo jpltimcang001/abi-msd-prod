@@ -2274,7 +2274,7 @@ al     *
                 'No' =>  isset($data['params']['Scheme_Code']) ? $data['params']['Scheme_Code'] : "",
 				'Customer_Code' => isset($data['params']['No']) ? $data['params']['No'] : "",
 				//'From_Date' => "<". ( isset($data['params']['date_from']) ? $data['params']['date_from'] : date("Y-m-d", strtotime("-3 days"))),
-				'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-3 days"))
+				'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-14 days"))
             ]
         ];
 		$data_l =  [
@@ -2290,26 +2290,26 @@ al     *
             $trigger = Utils::saveTrigger($sales_office_no, DownloadConnector::MODULE_LOCATION_MULTIPLE, DownloadConnector::STATUS_PENDING, $added_by);
             $trigger_id = isset($trigger['id']) ? $trigger['id'] : 0;
 			
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(ZoneData::MODULE_NAME_ZONE) . "\n");
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Started " . strtolower(ZoneData::MODULE_NAME_ZONE) . " maintenance.", ""); /* Save log message */
-            // $this->runLocation($data_l, $trigger);
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Finished " . strtolower(ZoneData::MODULE_NAME_ZONE) . " maintenance.", ""); /* Save log message */
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(ZoneData::MODULE_NAME_ZONE) . "\n");
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Started " . strtolower(ZoneData::MODULE_NAME_ZONE) . " maintenance.", ""); /* Save log message */
+            $this->runLocation($data_l, $trigger);
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Finished " . strtolower(ZoneData::MODULE_NAME_ZONE) . " maintenance.", ""); /* Save log message */
 
-			// Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "Started retrieve " . strtolower(DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE) . " maintenance.", ""); /* Save log message */
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . "\n");
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Started " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . " maintenance.", ""); /* Save log message */
-            // $this->runDistributionChannel($params_d, $trigger);
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . " maintenance.", ""); /* Save log message */
+			Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "Started retrieve " . strtolower(DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE) . " maintenance.", ""); /* Save log message */
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . "\n");
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Started " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . " maintenance.", ""); /* Save log message */
+            $this->runDistributionChannel($params_d, $trigger);
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished " . strtolower(DistributionChannelData::MODULE_NAME_DISTRIBUTION_CHANNEL) . " maintenance.", ""); /* Save log message */
             
-            // print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . "\n");
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Started " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . " maintenance.", ""); /* Save log message */
-            // $this->runSubChannel($params_d, $trigger);
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . " maintenance.", ""); /* Save log message */
+            print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . "\n");
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Started " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . " maintenance.", ""); /* Save log message */
+            $this->runSubChannel($params_d, $trigger);
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished " . strtolower(SubChannelData::MODULE_NAME_SUB_CHANNEL) . " maintenance.", ""); /* Save log message */
 
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SalesmanData::MODULE_NAME_SALESMAN) . "\n");
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Started " . strtolower(SalesmanData::MODULE_NAME_SALESMAN)  . " maintenance.", ""); /* Save log message */
-            // $this->runSalesman($data_sm, $trigger);
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Finished " . strtolower(SalesmanData::MODULE_NAME_SALESMAN)  . " maintenance.", ""); /* Save log message */
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SalesmanData::MODULE_NAME_SALESMAN) . "\n");
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Started " . strtolower(SalesmanData::MODULE_NAME_SALESMAN)  . " maintenance.", ""); /* Save log message */
+            $this->runSalesman($data_sm, $trigger);
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_INVENTORY_MULTIPLE . "] Finished " . strtolower(SalesmanData::MODULE_NAME_SALESMAN)  . " maintenance.", ""); /* Save log message */
 
             Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Started " . strtolower(LocationData::MODULE_NAME_LOCATION) . " maintenance.", ""); /* Save log message */
             if (is_array($salesman_params) && count($salesman_params) > 0) {
@@ -2329,20 +2329,20 @@ al     *
                 $this->runCustomer($params_l, $trigger);				
 			}
 			
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SKUData::MODULE_NAME_SKU) . "\n");
-			// $this->runProduct($params_sku, $trigger); 	
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(SKUData::MODULE_NAME_SKU) . "\n");
+			$this->runProduct($params_sku, $trigger);
 			
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished Promotions maintenance.", ""); /* Save log message */
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(PromotionData::MODULE_NAME_PROMOTION) . "\n");
-            // $this->runPromotion($params_dc, $trigger);
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished Promotions maintenance.", ""); /* Save log message */
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(PromotionData::MODULE_NAME_PROMOTION) . "\n");
+            $this->runPromotion($params_dc, $trigger);
 				
-			// Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished Deals maintenance.", ""); /* Save log message */
-			// print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(PromotionFOCData::MODULE_NAME_PROMOTION_FOC) . "\n");
-			// $this->runPromotionDeal($params_dc, $trigger);
+			Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE . "] Finished Deals maintenance.", ""); /* Save log message */
+			print_r("[" . date("Y-m-d H:i:s") . "] Syncing " . strtolower(PromotionFOCData::MODULE_NAME_PROMOTION_FOC) . "\n");
+			$this->runPromotionDeal($params_dc, $trigger);
 
-            // Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "Done retrieved " . strtolower(DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE) . " maintenance.", ""); /* Save log message */
-            // Utils::updateTriggerStatus($trigger_id, DownloadConnector::STATUS_DONE); /* Update trigger status */
-            // Utils::updateTriggerEndDate($trigger_id, date("Y-m-d H:i:s")); /* Update trigger end date */
+            Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "Done retrieved " . strtolower(DownloadConnector::MODULE_NAME_LOCATION_MULTIPLE) . " maintenance.", ""); /* Save log message */
+            Utils::updateTriggerStatus($trigger_id, DownloadConnector::STATUS_DONE); /* Update trigger status */
+            Utils::updateTriggerEndDate($trigger_id, date("Y-m-d H:i:s")); /* Update trigger end date */
         } catch (\Exception $exc) {
             throw $exc;
         }
