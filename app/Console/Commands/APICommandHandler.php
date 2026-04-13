@@ -2272,11 +2272,12 @@ al     *
             'batch_enabled' => true,
             'params' => [
                 'No' =>  isset($data['params']['Scheme_Code']) ? $data['params']['Scheme_Code'] : "",
-				'Customer_Code' => isset($data['params']['No']) ? $data['params']['No'] : "",
-				//'From_Date' => "<". ( isset($data['params']['date_from']) ? $data['params']['date_from'] : date("Y-m-d", strtotime("-3 days"))),
-				'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-14 days"))
+            'Customer_Code' => isset($data['params']['No']) ? $data['params']['No'] : "",
+
+            //'From_Date' => "<". ( isset($data['params']['date_from']) ? $data['params']['date_from'] : date("Y-m-d", strtotime("-3 days"))),
+            'SystemModifiedAt' => ">". date("Y-m-d", strtotime("-14 days"))
             ]
-        ];
+        ]; //dd($params_dc);
 		$data_l =  [
             'company' => $data['company'],
             'sales_office_no' => isset($data['sales_office_no']) ? $data['sales_office_no'] : "",

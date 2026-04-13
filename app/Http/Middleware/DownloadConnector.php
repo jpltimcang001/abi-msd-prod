@@ -523,6 +523,38 @@ class DownloadConnector extends Model
             }
         }
     }
+
+    /**
+     * CLI only: print throttled progress (percentage + ASCII bar). No-op when not in terminal (e.g. HTTP).
+     *
+     * @param string $runId Per-run id (e.g. request_no) so phases do not collide
+     * @param string $phase Label for this step
+     * @param int $current Current item (1..$total)
+     * @param int $total Total items
+     */
+    protected static function cliSyncProgress($runId, $phase, $current, $total, $barWidth = 28)
+    {
+        if (PHP_SAPI !== 'cli' || $total < 1) {
+            return;
+        }
+        $pct = (int) floor(($current * 100) / $total);
+        $pct = min(100, max(0, $pct));
+        static $reported = [];
+        $bucketKey = $runId . '|' . $phase;
+        $bucket = (int) floor($pct / 5) * 5;
+        if (!isset($reported[$bucketKey])) {
+            $reported[$bucketKey] = -1;
+        }
+        if ($current === 1 || $current >= $total || $bucket > $reported[$bucketKey]) {
+            $reported[$bucketKey] = $bucket;
+            $filled = (int) round($barWidth * $current / $total);
+            $filled = min($barWidth, max(0, $filled));
+            $bar = str_repeat('#', $filled) . str_repeat('-', $barWidth - $filled);
+            fwrite(STDOUT, sprintf("[%s] %s |%s| %d%% (%d/%d)\n", date('Y-m-d H:i:s'), $phase, $bar, $pct, $current, $total));
+            fflush(STDOUT);
+        }
+    }
+
     /**
      * Turns data obtained from client RESTful API to XML data and sends it to NOC.
      * (04/04/2022)
@@ -567,28 +599,31 @@ class DownloadConnector extends Model
             if (count($msd_soap_result->ReadMultiple_Result->PromotionList) > 0) {
 				$total_promo = count($msd_soap_result->ReadMultiple_Result->PromotionList);
 				$promotion_value = count($msd_soap_result->ReadMultiple_Result->PromotionList) > 1 ? $msd_soap_result->ReadMultiple_Result->PromotionList : [$msd_soap_result->ReadMultiple_Result->PromotionList];
+				$promo_i = 0;
                 foreach ($promotion_value as $value) {
-					$promotion_list[] = $value->No;
-					$promotion = [];
-					$promotion['no'] = $value->No;
-					$promotion['name'] =  isset($value->Name) ? $value->Name : "";
-					$promotion['description'] = isset($value->Long_Description) ? $value->Long_Description : "";
-					$promotion['sales_office_no'] = $sales_office_no;
-					$promotion['short_desc'] = $short_desc;
-					$promotion['start_date'] =  isset($value->From_Date) ? $value->From_Date : "";
-					$promotion['end_date'] =  isset( $value->To_Date) ? $value->To_Date : "";
-					$promotion['scheme_type'] =   isset($value->Scheme_Type) ? $value->Scheme_Type : "";
-					$promotion['scheme_activate'] =   isset($value->Scheme_Activate) ? $value->Scheme_Activate : "";
-					$promotion['exclusive_promo'] =   isset($value->Exclusive_Promo) ? $value->Exclusive_Promo : "";
-					$promotion['discount'] =   isset($value->Promotion_On_Discount) ? $value->Promotion_On_Discount : "";
-					$promotion['foc'] =   isset($value->Promotion_On_FOC) ?  $value->Promotion_On_FOC  : "";
-					$promotion['bundle_validation'] =   isset($value->Multiple_Bundle_Validation) ? $value->Multiple_Bundle_Validation : "";
-					$promotion['link_bundle'] =   isset($value->Link_to_Bundle) ? $value->Link_to_Bundle : "";
-					$promotion['foc_scheme'] =   isset($value->FOC_Scheme) ? $value->FOC_Scheme : "";
-					$promotion['discount_scheme'] =   isset($value->Discount_Scheme) ? : ""; 
-					$promotion["request_no"] = $request_no;
-					$msd_promo_data[] = $promotion;
-					print_r('Saved ' . $promotion['no'] . "\n");
+					$promo_i++;
+					self::cliSyncProgress($request_no, 'Promotion list', $promo_i, $total_promo);
+					$no = $value->No;
+					$promotion_list[] = $no;
+					$msd_promo_data[] = [
+						'no' => $no,
+						'name' => isset($value->Name) ? $value->Name : '',
+						'description' => isset($value->Long_Description) ? $value->Long_Description : '',
+						'sales_office_no' => $sales_office_no,
+						'short_desc' => $short_desc,
+						'start_date' => isset($value->From_Date) ? $value->From_Date : '',
+						'end_date' => isset($value->To_Date) ? $value->To_Date : '',
+						'scheme_type' => isset($value->Scheme_Type) ? $value->Scheme_Type : '',
+						'scheme_activate' => isset($value->Scheme_Activate) ? $value->Scheme_Activate : '',
+						'exclusive_promo' => isset($value->Exclusive_Promo) ? $value->Exclusive_Promo : '',
+						'discount' => isset($value->Promotion_On_Discount) ? $value->Promotion_On_Discount : '',
+						'foc' => isset($value->Promotion_On_FOC) ? $value->Promotion_On_FOC : '',
+						'bundle_validation' => isset($value->Multiple_Bundle_Validation) ? $value->Multiple_Bundle_Validation : '',
+						'link_bundle' => isset($value->Link_to_Bundle) ? $value->Link_to_Bundle : '',
+						'foc_scheme' => isset($value->FOC_Scheme) ? $value->FOC_Scheme : '',
+						'discount_scheme' => isset($value->Discount_Scheme) ? $value->Discount_Scheme : '',
+						'request_no' => $request_no,
+					];
                 }
 				
 				$total_promo_s = count($msd_promo_data);
@@ -617,31 +652,47 @@ class DownloadConnector extends Model
 			$data_l['params']['Customer_Code'] = $customer_code;
 		}
 		
-		$data_l['params']['Scheme_No'] = implode($promotion_list, "|");
+		$promotion_list = array_values(array_unique($promotion_list));
+		$promotionSet = array_flip($promotion_list);
 		$data_l['params']['WIN_Sale_office_Code'] = $short_desc;
-		$data_l['params']['Scheme_End_Date'] = ">". date('Y-m-d');
-		$data_l['params']['Scheme_Start_Date'] = "<". date('Y-m-d');
+		/* Inclusive "active on run date": strict >/< excluded rows starting or ending today. */
+		$today = date('Y-m-d');
+		$data_l['params']['Scheme_End_Date'] = '>=' . $today;
+		$data_l['params']['Scheme_Start_Date'] = '<=' . $today;
 		print_r("[" . date("Y-m-d H:i:s") . "] Downloading Discount Location List\n");
-		print(json_encode($data_l));
+		print_r("[" . date("Y-m-d H:i:s") . "] Scheme count: " . count($promotion_list) . "\n");
         /* Location */
 		$msd_promo_location_data = [];
         $route = Params::values()['webservice']['abi_msd']['route']['promotion-customer']['list'];
-        $url = Globals::soapABIMSDynamicsURL($route, $company);
-        $msd_soap_result = Globals::callSoapApiReadMultiple($url, $data_l, $sales_office_no);
-        if (isset($msd_soap_result->ReadMultiple_Result->PromotionCustomerList)) {
-            if (count($msd_soap_result->ReadMultiple_Result->PromotionCustomerList) > 0) {
-				$total_promo_l = count($msd_soap_result->ReadMultiple_Result->PromotionCustomerList);
-				$loc_objs = [];
-				$promotion_arr = [];
-				if(count($msd_soap_result->ReadMultiple_Result->PromotionCustomerList) == 1) {
-					$promotion_arr = [$msd_soap_result->ReadMultiple_Result->PromotionCustomerList];
+        $url = Globals::soapABIMSDynamicsURL($route, $company); //dd($url);
+		$loc_objs = [];
+		$promotion_arr = [];
+		$schemeChunks = array_chunk($promotion_list, 35);
+		$totalSchemeChunks = count($schemeChunks);
+		foreach ($schemeChunks as $chunkIndex => $schemeChunk) {
+			$data_l['params']['Scheme_No'] = implode("|", $schemeChunk);
+			print_r("[" . date("Y-m-d H:i:s") . "] Fetching location chunk " . ($chunkIndex + 1) . "/" . $totalSchemeChunks . " (" . count($schemeChunk) . " schemes)\n");
+			$msd_soap_result = Globals::callSoapApiReadMultiple($url, $data_l, $sales_office_no);
+			if (!isset($msd_soap_result->ReadMultiple_Result->PromotionCustomerList)) {
+				continue;
+			}
+			$chunkRows = $msd_soap_result->ReadMultiple_Result->PromotionCustomerList;
+			if (count($chunkRows) == 1) {
+				$promotion_arr[] = $chunkRows;
+			} else {
+				foreach ($chunkRows as $row) {
+					$promotion_arr[] = $row;
 				}
-				else {
-					$promotion_arr = $msd_soap_result->ReadMultiple_Result->PromotionCustomerList;
-				}
+			}
+		}
+        if (count($promotion_arr) > 0) {
+				$total_promo_l = count($promotion_arr);
+				$loc_i = 0;
                 foreach ($promotion_arr as $value) {	
+					$loc_i++;
+					self::cliSyncProgress($request_no, 'Discount locations', $loc_i, $total_promo_l);
 				
-					if(!in_array($value->Scheme_No, $promotion_list))
+					if(!isset($promotionSet[$value->Scheme_No]))
 						continue;
 					if(!isset($value->Customer_Code))
 						continue;
@@ -674,8 +725,6 @@ class DownloadConnector extends Model
                 }
 				$total_promo_l_s = count($msd_promo_location_data);
 					print_r('Saved ' . $total_promo_l_s . " out of " . $total_promo_l .  "\n");
-            } 				
-
         }
 		if(count($msd_promo_location_data) <= 0 ) {
 			print_r("No location found");
@@ -776,16 +825,35 @@ class DownloadConnector extends Model
             $so_request = new SoapVar($so_params, XSD_ANYXML);
             $so_soap_result = (array) $soap_client->retrieveSalesOfficeByCriteria($so_request);
 
+			$locationsByPromo = [];
+			foreach ($msd_promo_location_data as $location_batch) {
+				$pno = $location_batch['promotion_no'];
+				if (!isset($locationsByPromo[$pno])) {
+					$locationsByPromo[$pno] = [];
+				}
+				$locationsByPromo[$pno][] = $location_batch;
+			}
+			$discountsByPromo = [];
+			foreach ($msd_promo_discount_data as $discount_batch) {
+				$pno = $discount_batch['promotion_no'];
+				if (!isset($discountsByPromo[$pno])) {
+					$discountsByPromo[$pno] = [];
+				}
+				$discountsByPromo[$pno][] = $discount_batch;
+			}
+
 			$final_data = [];
 
+			$promoDataCount = count($msd_promo_data);
+			$promoIdx = 0;
 			foreach ($msd_promo_data as $key => $promo_batch) {
-			$final_data[$promo_batch['no']] = [];
-				foreach ($msd_promo_location_data as  $location_batch) {
-					if($location_batch['promotion_no'] != $promo_batch['no'])
-						continue;
-					foreach ($msd_promo_discount_data as $discount_batch) {
-						if($discount_batch['promotion_no'] != $promo_batch['no'])
-							continue;
+				$promoIdx++;
+				self::cliSyncProgress($request_no, 'Build discount matrix', $promoIdx, $promoDataCount);
+				$final_data[$promo_batch['no']] = [];
+				$locationsForPromo = isset($locationsByPromo[$promo_batch['no']]) ? $locationsByPromo[$promo_batch['no']] : [];
+				$discountsForPromo = isset($discountsByPromo[$promo_batch['no']]) ? $discountsByPromo[$promo_batch['no']] : [];
+				foreach ($locationsForPromo as $location_batch) {
+					foreach ($discountsForPromo as $discount_batch) {
 						$discount_m_case_no = $location_batch['location_code'] . $promo_batch['no'] . $discount_batch['product_no']. $discount_batch['discount_type'];
 						
 						if(isset($final_data[$promo_batch['no']][$discount_m_case_no]))
@@ -817,11 +885,15 @@ class DownloadConnector extends Model
 			unset($msd_promo_data);
 			unset($msd_promo_location_data);
 			unset($msd_promo_discount_data);
-			$item_count_create = 0;
-			$item_count_update = 0;
+			unset($locationsByPromo);
+			unset($discountsByPromo);
 			$saved_promos = [];
 
+			$totalFinalPromos = count($final_data);
+			$finalPromoIdx = 0;
             foreach($final_data as $key => $promo) {
+				$finalPromoIdx++;
+				self::cliSyncProgress($request_no, 'DB save promotions', $finalPromoIdx, $totalFinalPromos);
             //            $soap_result = $soap_client->createDiscountCaseFromCache($request_no, $promo->no, $limit, $limit_new, DownloadConnector::MSD_LOGGER_NAME ); 
 				
 				if(count($promo) <= 0) {
@@ -830,144 +902,139 @@ class DownloadConnector extends Model
 				}
 				$saved_promos[] = $key;
 				print_r("Promotion " . $key . " start process. \n");
-				
-				
-				// $promo_of_discount = DB::select('SELECT discount_m_case_no, description, from_date, to_date, amount, percentage, location_id, deleted FROM discount_m_case where sales_office_no = "' . $sales_office_no . '" and disc_type_no = "'. $key . '"');
-				// $pcodes = [];
-				// $all_codes = [];
-				
-				// foreach($promo_of_discount as $item_value) {
-					// $pcodes[$item_value->discount_m_case_no] = ['description' => $item_value->description, 'from_date' => $item_value->from_date, 'to_date' => $item_value->to_date, 'amount' => $item_value->amount, 'percentage' => $item_value->percentage, 'location_id' => $item_value->location_id, 'deleted' => $item_value->deleted];
-				//	$all_codes[] = $item_value->discount_m_case_no;
-				// }
 
-				// unset($promo_of_discount);
-				// Get total count
-				$totalCount = DB::table('discount_m_case')
-					->where('sales_office_no', $sales_office_no)
-					->where('disc_type_no', $key)
-					->count();
-				if($totalCount <= 0) {
-					$totalCount = count($promo);
+				/* Process in bounded chunks — huge schemes OOM'd when loading all IDs + all existing rows + all inserts in memory. */
+				$promoRows = array_values($promo);
+				if (isset($final_data[$key])) {
+					$final_data[$key] = [];
 				}
+				$totalPromoRows = count($promoRows);
+				$promoChunkSize = 800;
+				$idInQuerySize = 350;
+				print_r("Promotion " . $key . " syncing " . $totalPromoRows . " rows in chunks of " . $promoChunkSize . "\n");
 
-				print_r("Promotion " . $key . " check found " . $totalCount . " items \n");
-				$inserted = [];
-				// Process in batches of 1000
-				for ($offset = 0; $offset < $totalCount; $offset += 1000) {
+				$insertCols = ['discount_m_case_no', 'disc_type_no', 'sales_office_no', 'location_id', 'product_no', 'document_no', 'discount_case_cd', 'description', 'amount', 'percentage', 'from_date', 'to_date', 'deleted', 'pser_cd', 'added_by', 'msd_synced'];
+				$pdo = DB::connection()->getPdo();
+				$chunkIndex = 0;
+				foreach (array_chunk($promoRows, $promoChunkSize) as $itemChunk) {
+					$chunkIndex++;
+					$existingRows = [];
+					$idsForChunk = [];
+					foreach ($itemChunk as $rowIn) {
+						if (!empty($rowIn['discount_m_case_no'])) {
+							$idsForChunk[$rowIn['discount_m_case_no']] = true;
+						}
+					}
+					$idList = array_keys($idsForChunk);
+					unset($idsForChunk);
+					foreach (array_chunk($idList, $idInQuerySize) as $idChunk) {
+						$rows = DB::table('discount_m_case')
+							->select('discount_m_case_no', 'description', 'from_date', 'to_date', 'amount', 'product_no', 'percentage', 'location_id', 'deleted')
+							->where('sales_office_no', $sales_office_no)
+							->where('disc_type_no', $key)
+							->whereIn('discount_m_case_no', $idChunk)
+							->get();
+						foreach ($rows as $row) {
+							$existingRows[$row->discount_m_case_no] = $row;
+						}
+						unset($rows);
+					}
+					unset($idList);
+
 					$item_create = [];
 					$item_update = [];
-					$pcodes = DB::table('discount_m_case')
-						->where('sales_office_no', $sales_office_no)
-						->where('disc_type_no', $key)
-						->select('discount_m_case_no', 'description', 'from_date', 'to_date', 'amount', 'product_no', 'percentage', 'location_id', 'deleted')
-						->offset($offset)
-						->limit(1000)
-						->get()
-						->keyBy('discount_m_case_no'); // Key the collection by discount_m_case_no for easier lookup
-
-					foreach ($promo as $key2 => $item) {
-						if (isset($pcodes[$item['discount_m_case_no']])) {
-							$temp_p_val = $pcodes[$item['discount_m_case_no']];
-							if ($item['from_date'] != $temp_p_val->from_date || 
-								$item['to_date'] != $temp_p_val->to_date || 
-								$item['amount'] != $temp_p_val->amount || 
-								$item['location_id'] != $temp_p_val->location_id || 
-								$item['product_no'] != $temp_p_val->product_no || 
-								$item['percentage'] != $temp_p_val->percentage || 
-								$item['description'] != $temp_p_val->description || 
+					foreach ($itemChunk as $item) {
+						if (isset($existingRows[$item['discount_m_case_no']])) {
+							$temp_p_val = $existingRows[$item['discount_m_case_no']];
+							if ($item['from_date'] != $temp_p_val->from_date ||
+								$item['to_date'] != $temp_p_val->to_date ||
+								$item['amount'] != $temp_p_val->amount ||
+								$item['location_id'] != $temp_p_val->location_id ||
+								$item['product_no'] != $temp_p_val->product_no ||
+								$item['percentage'] != $temp_p_val->percentage ||
+								$item['description'] != $temp_p_val->description ||
 								$temp_p_val->deleted == 1) {
 								$item_update[] = $item;
 							}
-							unset($promo[$key2]);
 						} else {
-							if(!isset($inserted[$item['discount_m_case_no']])) {
-								$item_create[] = $item;
-								$inserted[$item['discount_m_case_no']] = 1;
-							}
+							$item_create[] = $item;
 						}
 					}
+					unset($existingRows);
 
-					if(count($item_create) > 0) {
-						$insert_query = "";
-						$batch_insert = array_chunk($item_create, 500);
+					if (count($item_create) > 0) {
 						$insertCount = 0;
 						$total_count = count($item_create);
-						foreach($batch_insert as $data_insert){
-							$insert_query = "";
-							foreach($data_insert as $discount_data) {
-								$insert_query .= "( '" . implode($discount_data, "','") . "') ,";
+						foreach (array_chunk($item_create, 400) as $data_insert) {
+							$placeholders = [];
+							$bindings = [];
+							foreach ($data_insert as $discount_data) {
+								$placeholders[] = '(' . implode(',', array_fill(0, count($insertCols), '?')) . ')';
+								foreach ($insertCols as $col) {
+									$bindings[] = isset($discount_data[$col]) ? $discount_data[$col] : null;
+								}
 							}
+							$sql = 'INSERT IGNORE INTO discount_m_case (' . implode(',', $insertCols) . ') VALUES ' . implode(',', $placeholders);
 							try {
-								DB::insert('INSERT IGNORE INTO discount_m_case 
-								(discount_m_case_no, disc_type_no, sales_office_no, location_id, product_no, document_no, discount_case_cd, description, amount, percentage,  from_date, to_date, deleted, pser_cd, added_by, msd_synced)
-								VALUES ' .
-								rtrim($insert_query, ","));
+								DB::insert($sql, $bindings);
 								$insertCount += count($data_insert);
-								print_r("Created " . $insertCount. " out of " . $total_count . " items in ". $key ." \n");
+								print_r("[" . $key . "] chunk " . $chunkIndex . " created " . $insertCount . "/" . $total_count . "\n");
 							} catch (\Illuminate\Database\QueryException $e) {
 								continue;
 							}
-
 						}
 					}
-					if(count($item_update) > 0) {
-						// Execute the update queries
-						$batch_update = array_chunk($item_update, 100);
-						foreach($batch_update as $data_update) {
+					unset($item_create);
+
+					if (count($item_update) > 0) {
+						foreach (array_chunk($item_update, 80) as $data_update) {
 							DB::beginTransaction();
 							try {
-								$update_query = "";
-									$col_update = [
-									//'disc_type_no' => ' disc_type_no = CASE',
+								$col_update = [
 									'location_id' => ' location_id = CASE',
-									//'product_no' => ' product_no = CASE',
-									//'discount_case_cd' => ' discount_case_cd = CASE',
 									'description' => ' description = CASE',
 									'amount' => ' amount = CASE',
 									'percentage' => ' percentage = CASE',
 									'from_date' => ' from_date = CASE',
 									'to_date' => ' to_date = CASE',
 									'deleted' => ' deleted = CASE',
-									//'pser_cd' => ' pser_cd = CASE',
-									//'msd_synced' => ' msd_synced = CASE',
-									'updated_by'  => ' updated_by = CASE'
-									
+									'updated_by' => ' updated_by = CASE',
 								];
-								$update_query .= "UPDATE discount_m_case SET ";
-								
 								foreach ($data_update as $discount_data) {
-									$when_cond = ' WHEN discount_m_case_no = "'.$discount_data['discount_m_case_no'] .'"  ';
-									//$col_update['disc_type_no'] .= $when_cond . " AND disc_type_no <> '" . $discount_data['disc_type_no'] . "' THEN '" . $discount_data['disc_type_no'] . "' ";
-									$col_update['location_id'] .= $when_cond .  " AND location_id <> '" . $discount_data['location_id'] . "' THEN '" . $discount_data['location_id'] . "' ";
-									//$col_update['discount_case_cd'] .= $when_cond .  " AND discount_case_cd <> '"  . $discount_data['discount_case_cd'] . "' THEN '" . $discount_data['discount_case_cd'] . "'  ";
-									//$col_update['product_no'] .= $when_cond .  " AND product_no <> '"  . $discount_data['product_no'] . "'  THEN '" . $discount_data['product_no'] . "' ";
-									$col_update['description'] .= $when_cond .  " AND description <> '" . $discount_data['description'] . "' THEN '" . $discount_data['description'] . "'  ";
-									$col_update['amount'] .= $when_cond .  " THEN '" . $discount_data['amount'] . "'  ";
-									$col_update['percentage'] .= $when_cond . " THEN '" . $discount_data['percentage'] . "'  ";
-									$col_update['from_date'] .= $when_cond . " THEN '" . $discount_data['from_date'] . "'  ";
-									$col_update['to_date'] .= $when_cond .  " THEN '" . $discount_data['to_date'] . "'  ";
-									$col_update['deleted'] .= $when_cond .  " THEN '" . $discount_data['deleted'] . "'  ";
-									//$col_update['msd_synced'] .= $when_cond . " THEN '" . $discount_data['msd_synced'] . "'  ";
-									//$col_update['pser_cd'] .= $when_cond . " AND pser_cd <> '"  . $discount_data['pser_cd'] . "' THEN '" . $discount_data['pser_cd'] . "'  ";
-									$col_update['updated_by'] .= $when_cond . " THEN '" . DownloadConnector::MSD_LOGGER_NAME . "'  ";
+									$when_cond = ' WHEN discount_m_case_no = ' . $pdo->quote($discount_data['discount_m_case_no']) . ' ';
+									$col_update['location_id'] .= $when_cond . ' AND location_id <> ' . $pdo->quote($discount_data['location_id']) . ' THEN ' . $pdo->quote($discount_data['location_id']) . ' ';
+									$col_update['description'] .= $when_cond . ' AND description <> ' . $pdo->quote($discount_data['description']) . ' THEN ' . $pdo->quote($discount_data['description']) . '  ';
+									$col_update['amount'] .= $when_cond . ' THEN ' . $pdo->quote($discount_data['amount']) . '  ';
+									$col_update['percentage'] .= $when_cond . ' THEN ' . $pdo->quote($discount_data['percentage']) . '  ';
+									$col_update['from_date'] .= $when_cond . ' THEN ' . $pdo->quote($discount_data['from_date']) . '  ';
+									$col_update['to_date'] .= $when_cond . ' THEN ' . $pdo->quote($discount_data['to_date']) . '  ';
+									$col_update['deleted'] .= $when_cond . ' THEN ' . $pdo->quote($discount_data['deleted']) . '  ';
+									$col_update['updated_by'] .= $when_cond . ' THEN ' . $pdo->quote(DownloadConnector::MSD_LOGGER_NAME) . '  ';
 								}
-								
-								
-								foreach($col_update as $key_a => $column) {
-									$update_query .= $column . " ELSE " .$key_a . " END ,";
+								$update_query = 'UPDATE discount_m_case SET ';
+								foreach ($col_update as $key_a => $column) {
+									$update_query .= $column . ' ELSE ' . $key_a . ' END ,';
 								}
-								$update_query  = rtrim($update_query, ",");
-								$update_query .= ' WHERE disc_type_no = "' . $key . '" and sales_office_no = "' . $sales_office_no . '"';
+								$update_query = rtrim($update_query, ',');
+								$idsInBatch = [];
+								foreach ($data_update as $d) {
+									$idsInBatch[] = $d['discount_m_case_no'];
+								}
+								$inClause = implode(',', array_map(function ($id) use ($pdo) {
+									return $pdo->quote($id);
+								}, $idsInBatch));
+								$update_query .= ' WHERE disc_type_no = ' . $pdo->quote($key) . ' AND sales_office_no = ' . $pdo->quote($sales_office_no) . ' AND discount_m_case_no IN (' . $inClause . ')';
 								DB::update($update_query);
 								DB::commit();
-								print_r("Updated " . count($data_update) . " items in ". $key ." \n");
-							} catch (Exception $e) {
+								print_r("[" . $key . "] chunk " . $chunkIndex . " updated " . count($data_update) . " rows\n");
+							} catch (\Exception $e) {
 								DB::rollback();
 							}
 						}
 					}
+					unset($item_update, $itemChunk);
 				}
+				unset($promoRows);
 				  Utils::saveLog($trigger_id, $sales_office_no, date("Y-m-d H:i:s"), DownloadConnector::INFO, DownloadConnector::MSD_LOGGER_NAME, "[" . DiscountCaseData::MODULE_NAME_DISCOUNT_CASE .  "] Saved discount for " . $key, ""); /* Save log error message */
 			
 				print_r("Promotion " . $key . " done. \n");
