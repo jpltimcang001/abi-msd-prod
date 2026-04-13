@@ -595,31 +595,12 @@ class DownloadConnector extends Model
 
         $msd_promo_data = [];
 		$promotion_list = [];
-        $filter = [
-            "BII-12%-STD-ABS",
-            "BII-23%-STD-BWSG",
-            "BII-5+1-STD-ABS",
-            "BII-5+1-STD-SUM",
-            "BII-HO-2LEON+1LEON",
-            "BII-HO-4LEON+1LEON",
-            "BII-LMF-P10-COBRA-PC",
-            "BII-P10-STD-COB",
-            "BII-P15-STD-COB",
-            "BII-P20-STD-COB",
-            "BII-SSSEXPANSIONP-BW"
-        ];
-        /* O(1) membership when filter is enabled (avoid in_array per row). */
-        $filterSet = array_flip($filter);
         if (isset($msd_soap_result->ReadMultiple_Result->PromotionList)) {
             if (count($msd_soap_result->ReadMultiple_Result->PromotionList) > 0) {
 				$total_promo = count($msd_soap_result->ReadMultiple_Result->PromotionList);
 				$promotion_value = count($msd_soap_result->ReadMultiple_Result->PromotionList) > 1 ? $msd_soap_result->ReadMultiple_Result->PromotionList : [$msd_soap_result->ReadMultiple_Result->PromotionList];
 				$promo_i = 0;
                 foreach ($promotion_value as $value) {
-                    /* Uncomment to restrict to $filter list only (uses $filterSet, not in_array): */
-                    // if (!isset($filterSet[$value->No])) {
-                    //     continue;
-                    // }
 					$promo_i++;
 					self::cliSyncProgress($request_no, 'Promotion list', $promo_i, $total_promo);
 					$no = $value->No;
