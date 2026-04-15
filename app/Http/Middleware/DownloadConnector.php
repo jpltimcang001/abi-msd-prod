@@ -3131,9 +3131,10 @@ class DownloadConnector extends Model
 						if($sales_office_no == "780900") {
 							$data_sp['params']['SalesCode'] = 'ZAMBOANGA';
 						}
-						else if ($sales_office_no == "780500") {
-							$data_sp['params']['SalesCode'] = 'ILIGAN';
-						}
+						// else if ($sales_office_no == "780500") {
+						// 	$data_sp['params']['SalesCode'] = 'ILIGAN';
+                        //     dd($data_sp);
+						// }
 						else {
 							$data_sp['params']['SalesCode'] = 'NATIONAL';
 						}
